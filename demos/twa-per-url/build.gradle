@@ -1,0 +1,34 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace "com.google.browser.examples.twa_per_url"
+
+    defaultConfig {
+        applicationId "com.google.browser.examples.twa_per_url"
+        minSdkVersion 26
+        compileSdk 36
+        targetSdkVersion 31
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation project(path: ':androidbrowserhelper')
+    implementation libs.androidx.browser
+    implementation libs.androidx.core
+    testImplementation libs.junit
+}

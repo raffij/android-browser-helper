@@ -1,0 +1,29 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Per-URL TWA postMessage companion</title>
+<h1>Per-URL TWA postMessage companion</h1>
+<p id="state">Loaded; waiting for Android postMessage channel</p>
+<input id="message" placeholder="Message to Android">
+<button id="send">Send to Android</button>
+<pre id="log"></pre>
+<script>
+  const state = document.querySelector("#state");
+  const log = document.querySelector("#log");
+  const write = text => { log.textContent += text + "\n"; };
+
+  // Custom Tabs delivers Android -> web messages through this event.
+  document.addEventListener("message", event => {
+    write("Android -> Web: " + event.data);
+    window.postMessage("echo: " + event.data, location.origin);
+  });
+
+  // Custom Tabs delivers window.postMessage calls to the Android callback.
+  document.querySelector("#send").onclick = () => {
+    const value = document.querySelector("#message").value;
+    if (!value) return;
+    window.postMessage("web: " + value, location.origin);
+    write("Web -> Android: web: " + value);
+  };
+  window.postMessage("web: companion loaded", location.origin);
+</script>
