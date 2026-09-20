@@ -77,3 +77,23 @@ package name (`com.google.browser.examples.twa_per_url`) and the SHA-256 fingerp
 installed signing certificate. Serve the companion page and asset links over HTTPS, enter its URL,
 open it once, and wait for `postMessage channel ready`. The local file is a static demo only; it
 is not an HTTPS server or a DAL configuration.
+
+## Recents task branding
+
+The app applies an `Activity.setTaskDescription` label and rendered vector icon to the app-owned
+root before launching the browser. The browser is intentionally launched without `NEW_TASK` or
+`NEW_DOCUMENT`, so it remains above that root task and can inherit its task branding. On root
+creation/restoration the same hostname selection is reapplied; foreground-only reuse does not
+relaunch the browser or update the page just to change branding.
+
+`airhorner.com` and `example.com` use distinct bundled sample icons. Arbitrary hostnames use
+`ic_brand_default` and a generated `Hostname: <hostname>` label. To customize a hostname, add a
+sample-owned vector drawable under `src/main/res/drawable` and one exact hostname branch in
+`TaskBranding.forHostname`; do not fetch or bundle third-party brand assets. The manifest's
+application icon and round fallback use the same default vector.
+
+Manual Recents checks: open two distinct hostnames and confirm their task labels/icons differ;
+open a different path or explicit port for an existing hostname and confirm the same task,
+icon, and page are foregrounded; then restore the task from Recents and confirm branding remains.
+Browser versions, launchers, and OEM task rendering may differ, and process death can affect
+browser state, so these visual results require a device/browser check.

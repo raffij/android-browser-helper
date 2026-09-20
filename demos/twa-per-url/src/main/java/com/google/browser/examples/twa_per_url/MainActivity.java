@@ -25,7 +25,7 @@ import java.util.List;
 public class MainActivity extends Activity {
     private static final String TAG = "PerUrlTwa";
     private static final String DEFAULT_A = "https://airhorner.com/";
-    private static final String DEFAULT_B = "https://airhorner.com/?from=second#demo";
+    private static final String DEFAULT_B = "https://example.com/?from=second#demo";
 
     private TextView status;
     private TextView messages;
@@ -43,6 +43,8 @@ public class MainActivity extends Activity {
         Uri requestedUrl = getIntent().getData();
         if (requestedUrl != null) {
             openUrl(requestedUrl.toString());
+        } else {
+            TaskBranding.apply(this, null);
         }
     }
 
@@ -138,6 +140,7 @@ public class MainActivity extends Activity {
             return;
         }
 
+        TaskBranding.apply(this, identity.hostname);
         ActivityManager.AppTask existing = findTask(identity.hostname);
         if (existing != null) {
             foregroundTask(existing, identity);
@@ -239,6 +242,9 @@ public class MainActivity extends Activity {
             ActivityManager.RecentTaskInfo info = task.getTaskInfo();
             if (info == null || info.baseIntent == null
                     || info.baseIntent.getData() == null) {
+                continue;
+            }
+            if (info.id == getTaskId()) {
                 continue;
             }
             ComponentName component = info.baseIntent.getComponent();
