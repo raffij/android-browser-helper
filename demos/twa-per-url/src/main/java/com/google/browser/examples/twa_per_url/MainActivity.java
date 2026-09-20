@@ -25,7 +25,7 @@ import java.util.List;
 public class MainActivity extends Activity {
     private static final String TAG = "PerUrlTwa";
     private static final String DEFAULT_A = "https://airhorner.com/";
-    private static final String DEFAULT_B = "https://www.google.com/";
+    private static final String DEFAULT_B = "https://airhorner.com/?from=second#demo";
 
     private TextView status;
     private TextView messages;
@@ -52,8 +52,9 @@ public class MainActivity extends Activity {
         root.setPadding(32, 32, 32, 32);
 
         TextView explanation = new TextView(this);
-        explanation.setText("Each exact HTTPS URL gets its own document task. "
-                + "Existing tasks are foregrounded without sending a new navigation.");
+        explanation.setText("Each HTTPS hostname gets one document task. "
+                + "A different path, query, fragment, or port for that hostname foregrounds "
+                + "the existing page without navigation.");
         explanation.setTextSize(16);
         root.addView(explanation, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -61,9 +62,9 @@ public class MainActivity extends Activity {
         EditText first = urlInput(DEFAULT_A);
         EditText second = urlInput(DEFAULT_B);
         root.addView(first);
-        root.addView(openButton("Open URL A", first));
+        root.addView(openButton("Open hostname A", first));
         root.addView(second);
-        root.addView(openButton("Open URL B", second));
+        root.addView(openButton("Open hostname B", second));
 
         EditText custom = urlInput("");
         custom.setHint("Custom HTTPS URL");
@@ -103,50 +104,53 @@ public class MainActivity extends Activity {
     }
 
     private void requestUrl(String rawUrl) {
-        String urlIdentity = rawUrl.trim();
-        Uri url = Uri.parse(urlIdentity);
-        if (!isSupportedUrl(url)) {
-            showError("Error: enter an absolute HTTPS URL without user info.");
+        UrlIdentity identity;
+        try {
+            identity = UrlIdentity.parse(rawUrl);
+        } catch (IllegalArgumentException e) {
+            showError("Error: " + e.getMessage());
             return;
         }
 
-        ActivityManager.AppTask existing = findTask(urlIdentity);
+        ActivityManager.AppTask existing = findTask(identity.hostname);
         if (existing != null) {
-            foregroundTask(existing, urlIdentity);
+            foregroundTask(existing, identity);
             return;
         }
 
         Intent intent = new Intent(this, MainActivity.class)
-                .setData(url)
+                .setData(Uri.parse(identity.originalUrl))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT);
         try {
             startActivity(intent);
-            showStatus("Opening a new document task for " + urlIdentity + "...");
+            showStatus("Opening a new task for hostname " + identity.hostname + "...");
         } catch (RuntimeException e) {
             showError("Error: could not create a document task: " + e.getMessage());
         }
     }
 
     private void openUrl(String rawUrl) {
-        String urlIdentity = rawUrl.trim();
-        Uri url = Uri.parse(urlIdentity);
-        if (!isSupportedUrl(url)) {
-            showError("Error: enter an absolute HTTPS URL without user info.");
-            return;
-        }
-
-        ActivityManager.AppTask existing = findTask(urlIdentity);
-        if (existing != null) {
-            foregroundTask(existing, urlIdentity);
-            return;
-        }
-
-        int sessionId = sessionStore.sessionIdFor(urlIdentity);
-        showStatus("Created TWA task for " + urlIdentity + " (session " + sessionId + ").");
+        UrlIdentity identity;
         try {
-            messageOrigin = Uri.parse(url.getScheme() + "://" + url.getAuthority());
+            identity = UrlIdentity.parse(rawUrl);
+        } catch (IllegalArgumentException e) {
+            showError("Error: " + e.getMessage());
+            return;
+        }
+
+        ActivityManager.AppTask existing = findTask(identity.hostname);
+        if (existing != null) {
+            foregroundTask(existing, identity);
+            return;
+        }
+
+        int sessionId = sessionStore.sessionIdFor(identity.hostname);
+        showStatus("Created TWA task for hostname " + identity.hostname
+                + " (initial URL " + identity.originalUrl + ", session " + sessionId + ").");
+        try {
+            messageOrigin = identity.origin;
             launcher = new PerUrlTwaLauncher(this, sessionId);
-            launcher.launch(url, new CustomTabsCallback() {
+            launcher.launch(Uri.parse(identity.originalUrl), new CustomTabsCallback() {
                 @Override
                 public void onMessageChannelReady(Bundle extras) {
                     mainHandler.post(() ->
@@ -216,23 +220,18 @@ public class MainActivity extends Activity {
         }
     }
 
-    private boolean isSupportedUrl(Uri url) {
-        return "https".equalsIgnoreCase(url.getScheme()) && url.getHost() != null
-                && url.getUserInfo() == null;
-    }
-
-    private void foregroundTask(ActivityManager.AppTask task, String urlIdentity) {
+    private void foregroundTask(ActivityManager.AppTask task, UrlIdentity requestedIdentity) {
         try {
             task.moveToFront();
-            showStatus("Resumed existing TWA task for " + urlIdentity
-                    + " (the browser page was not relaunched).");
+            showStatus("Resumed hostname " + requestedIdentity.hostname + " without navigation. "
+                    + "The existing page and postMessage origin remain unchanged.");
             finish();
         } catch (SecurityException e) {
             showError("Error: could not foreground the existing task: " + e.getMessage());
         }
     }
 
-    private ActivityManager.AppTask findTask(String urlIdentity) {
+    private ActivityManager.AppTask findTask(String hostname) {
         ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
         ComponentName root = new ComponentName(this, MainActivity.class);
         List<ActivityManager.AppTask> tasks = manager.getAppTasks();
@@ -246,7 +245,7 @@ public class MainActivity extends Activity {
             if (component != null && TaskReuseDecider.matches(
                     new TaskReuseDecider.TaskDescriptor(component.getPackageName(),
                             component.getClassName(), info.baseIntent.getData().toString()),
-                    root.getPackageName(), root.getClassName(), urlIdentity)) {
+                    root.getPackageName(), root.getClassName(), hostname)) {
                 return task;
             }
         }

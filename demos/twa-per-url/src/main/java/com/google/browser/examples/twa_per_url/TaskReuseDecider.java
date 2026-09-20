@@ -5,10 +5,10 @@ final class TaskReuseDecider {
     private TaskReuseDecider() {}
 
     static boolean matches(TaskDescriptor task, String packageName, String activityName,
-            String urlIdentity) {
+            String hostname) {
         return packageName.equals(task.packageName)
                 && activityName.equals(task.activityName)
-                && urlIdentity.equals(task.baseIntentData);
+                && hostname.equals(UrlIdentity.hostnameKeyOrNull(task.baseIntentData));
     }
 
     static final class TaskDescriptor {
